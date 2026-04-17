@@ -117,6 +117,32 @@ pip install -U transformers
 
 ---
 
+## 4b. Authenticate with Hugging Face (one-time, required)
+
+The CHMv2 weights are **gated** under Meta's DINOv3 license. You must accept
+the terms in your HF account before the model can be downloaded.
+
+1. Sign in / sign up at https://huggingface.co
+2. Open https://huggingface.co/facebook/dinov3-vitl16-chmv2-dpt-head and
+   click **Agree and access** (you'll get an email confirmation).
+3. Create a read token: https://huggingface.co/settings/tokens → *New token*
+   → select *Read* role → copy the token.
+4. Log in on this machine:
+
+   ```bash
+   pip install huggingface_hub
+   hf auth login
+   # paste the token; answer "n" to the git-credential prompt
+   ```
+
+   (Older versions: `huggingface-cli login` — same thing.) Token is cached
+   at `~/.cache/huggingface/token`.
+
+From then on, `from_pretrained(...)` downloads the weights once into
+`~/.cache/huggingface/hub/` and every subsequent run is offline-fast.
+
+---
+
 ## 5. Put your images in place
 
 ```
@@ -216,6 +242,8 @@ Open the `.tif` in QGIS / ArcGIS / any image viewer.
 
 - **`bash: .venvScriptsactivate: command not found`** — Git Bash eats the
   backslashes. Use `source .venv/Scripts/activate` instead.
+- **`401 Unauthorized` / `403 Forbidden` when loading the model** — you
+  haven't accepted the gated terms or aren't logged in. Redo section 4b.
 - **`ImportError: CHMv2ForDepthEstimation`** — `pip install -U transformers`.
 - **`torch.cuda.is_available()` is False** — wrong CUDA wheel. Uninstall and
   reinstall torch with a `cu126`/`cu128` index supported by your driver.

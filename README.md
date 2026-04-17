@@ -76,14 +76,16 @@ Your shell prompt should now start with `(.venv)` or `(chmv2)`.
 
 ## 3. Install PyTorch with CUDA
 
-Pick the command that matches your CUDA driver (`nvidia-smi` → top right
-corner shows `CUDA Version: 12.x`):
+The `CUDA Version: 13.1` that `nvidia-smi` prints is the **maximum** CUDA the
+driver supports — not an installed toolkit. Any PyTorch CUDA wheel whose
+version is ≤ that number will work. Current stable PyTorch ships wheels for
+**CUDA 11.8 / 12.6 / 12.8**. Recommended: **cu128**.
 
 ```bash
-# CUDA 12.4 (works on any driver >= R550)
-pip install --index-url https://download.pytorch.org/whl/cu124 torch torchvision
+# Recommended for RTX 4080 Super, driver >= R550
+pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
 
-# CUDA 12.6
+# Older alternative if cu128 has issues
 pip install --index-url https://download.pytorch.org/whl/cu126 torch torchvision
 ```
 
@@ -216,7 +218,7 @@ Open the `.tif` in QGIS / ArcGIS / any image viewer.
   backslashes. Use `source .venv/Scripts/activate` instead.
 - **`ImportError: CHMv2ForDepthEstimation`** — `pip install -U transformers`.
 - **`torch.cuda.is_available()` is False** — wrong CUDA wheel. Uninstall and
-  reinstall torch with the `cu124`/`cu126` index that matches `nvidia-smi`.
+  reinstall torch with a `cu126`/`cu128` index supported by your driver.
 - **`CUDA out of memory`** in tile mode — lower `--tile` (e.g. `--tile 768`)
   or use `--target-gsd 0.2` to shrink the image first.
 - **PIL "DecompressionBombError"** — already disabled in the script

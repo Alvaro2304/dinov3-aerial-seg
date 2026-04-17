@@ -1,0 +1,9 @@
+# On Windows with RTX 4080 Super, install torch matching your CUDA:
+#   https://pytorch.org/get-started/locally/   (e.g. --index-url https://download.pytorch.org/whl/cu124)
+torch>=2.4
+torchvision>=0.19
+# CHMv2 was merged into transformers main in March 2026.
+transformers>=4.53
+Pillow>=10.0
+numpy>=1.24
+matplotlib>=3.7

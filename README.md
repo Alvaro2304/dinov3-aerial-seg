@@ -361,7 +361,54 @@ Flags worth knowing:
 
 ---
 
-## 11. What next
+## 11. Mosaic height maps across the survey (no per-frame stacking)
+
+`mask_to_kmz.py` produces one overlay per photo, so the 10% forward overlap
+shows up as visible double‑rendering. `mosaic_heights.py` solves that by
+warping every frame's height raster onto a shared lat/lon grid (default
+1 m/px) and averaging where they overlap, weighted by a Hann window so
+parallax‑prone frame edges contribute less than centers. The output is a
+single coherent canopy raster per N‑km chunk.
+
+```bash
+python mosaic_heights.py outputs/ data/metadata.txt -o mosaic/ \
+    --chunk-km 10 --gsd-m 1.0 --threshold 2.0
+```
+
+Produces in `mosaic/`:
+
+- `chunk_001.kmz`, `chunk_002.kmz`, … — one self‑contained KMZ per ~10 km
+  segment of flight. Drop into Earth one at a time for fast loading.
+- `all_chunks.kmz` — every chunk's overlay packaged into one KMZ for the
+  full‑survey view.
+
+Each KMZ has two toggleable layers: **CHMv2 height** (heatmap, hidden by
+default) and **Canopy mask** (binary, visible by default).
+
+Useful flags:
+
+- `--chunk-km K` — cumulative GPS distance per chunk. Default 10.
+- `--gsd-m M` — output GSD. Default 1.0 m/px (matches CHMv2 training
+  scale). Drop to 0.5 for more visual detail at 4× the file size.
+- `--threshold T` — canopy if averaged height ≥ T m. Default 2.0.
+- `--max-pixels N` — abort a chunk whose bbox exceeds N pixels (memory
+  guard). Default 2 × 10⁸.
+- `--no-combined` — skip writing `all_chunks.kmz` (faster, less disk).
+- `--unrectified` — pass if your `*_height.npy` came from raw tilted
+  frames (rectified is the default).
+
+What it fixes vs. `mask_to_kmz.py`:
+- No per‑frame stacking — overlap zones become a single, averaged surface.
+- Per‑frame absolute‑height drift gets averaged out where frames overlap.
+- One mask boundary per chunk, not one per photo — cleaner KMZ to read.
+
+What it still doesn't fix:
+- Parallax (single‑view limitation; would need true SfM).
+- Out‑of‑distribution scale mismatch with CHMv2's satellite training.
+
+---
+
+## 12. What next
 
 Once the previews look reasonable, binary segmentation is one line:
 

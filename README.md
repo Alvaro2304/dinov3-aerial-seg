@@ -408,7 +408,26 @@ What it still doesn't fix:
 
 ---
 
-## 12. What next
+## 12. KMZ of just the rectified photos (no inference required)
+
+When you only want a KMZ of the rectified photos placed on the map — for
+QA, briefings, or sharing with someone who doesn't care about canopy —
+use `photos_to_kmz.py`. It iterates the photos folder directly, no
+`*_height.npy` files needed.
+
+```bash
+python photos_to_kmz.py data_rectified/ data/metadata.txt -o photos.kmz \
+    --max-edge 2048
+```
+
+Same flags as the photos layer in `mask_to_kmz.py`: `--max-edge`,
+`--photo-quality`, `--dark-threshold`. Use `--unrectified` if pointing
+at raw tilted frames (it will use each frame's drone roll/pitch from the
+metadata for the corner projection).
+
+---
+
+## 13. What next
 
 Once the previews look reasonable, binary segmentation is one line:
 

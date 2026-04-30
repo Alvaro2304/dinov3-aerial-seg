@@ -260,7 +260,46 @@ Open the `.tif` in QGIS / ArcGIS / any image viewer.
 
 ---
 
-## 9. What next
+## 9. Optional: rectify tilted frames before inference
+
+The VTOL has no gimbal, so each JPG inherits the airframe's roll/pitch.
+CHMv2 was trained on near-nadir satellite imagery, so a 10°+ roll degrades
+absolute heights significantly. `rectify.py` applies a pure-rotation
+homography that warps each tilted frame to a virtual nadir view, using
+per-image attitude from your flight CSV.
+
+Conventions match `geo_inference/extra/docs/geo_projection.html`
+(R_mount = Rz(−90°), ZYX Euler, +X right / +Y down / +Z forward).
+
+```bash
+# rectify all JPGs in data/ → data_rectified/
+python rectify.py data/ flight.csv -o data_rectified/
+
+# only rectify mildly tilted frames (skip extreme cases)
+python rectify.py data/ flight.csv --max-tilt-deg 20
+
+# then run CHMv2 on the rectified images
+python chmv2_infer.py data_rectified/IMG_0001.JPG --target-gsd 0.2
+```
+
+The flight CSV must be semicolon-separated with columns including
+`name`, `drone_roll`, `drone_pitch`, `drone_yaw`, `current_height` (matches
+the format produced by your VTOL's metadata exporter).
+
+What rectification fixes:
+- Tilt-induced perspective drift in CHMv2 absolute heights.
+
+What it does NOT fix:
+- Parallax (tall trees still lean outward at frame edges — needs multi-view).
+- Variable AGL between frames (±10 m altitude → ~7 % GSD variation).
+- Fundamental scale mismatch with CHMv2's ~1 m/px training data.
+
+For trustworthy absolute heights, build an orthomosaic (WebODM/Metashape)
+from the survey and run inference on the mosaic at `--target-gsd 1.0`.
+
+---
+
+## 10. What next
 
 Once the previews look reasonable, binary segmentation is one line:
 

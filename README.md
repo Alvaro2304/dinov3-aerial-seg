@@ -336,7 +336,15 @@ Flags worth knowing:
 
 - `--threshold M` — height ≥ this in meters is canopy. Default 2.0.
 - `--color R,G,B,A` — overlay color. Default `0,200,0,160` (semi‑green).
-- `--max-edge N` — downsample mask PNGs to this max side. Default 1024.
+- `--max-edge N` — downsample overlay images to this max side. Default 1024.
+- `--height-vmax M` — upper bound (meters) for the height heatmap colormap.
+  Default 15.0. Pixels above this saturate yellow; pixels below
+  `--height-alpha-threshold` (default 1.0) are transparent.
+- `--dark-threshold N` — photo pixels with `max(R,G,B) <= N` become fully
+  transparent (handles black borders left by `rectify.py`). Default 5.
+  Photos without dark pixels are saved as JPEG (smaller); photos with
+  dark borders are saved as PNG with an alpha channel.
+- `--photo-quality Q` — JPEG quality 0–100. Default 85.
 - `--unrectified` — pass this if your height rasters came from raw tilted
   frames; otherwise the script assumes you ran inference on rectified
   outputs (default workflow).

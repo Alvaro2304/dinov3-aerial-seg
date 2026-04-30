@@ -29,6 +29,7 @@ from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
+from matplotlib import colormaps
 from PIL import Image, ImageOps
 
 PHOTO_EXTS = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".JPG", ".JPEG", ".PNG")
@@ -95,6 +96,36 @@ def height_to_rgba(height: np.ndarray, threshold: float,
     rgba = np.zeros((*height.shape, 4), dtype=np.uint8)
     rgba[mask] = color
     return Image.fromarray(rgba, mode="RGBA")
+
+
+def height_to_heatmap(height: np.ndarray, vmax: float,
+                      alpha_threshold: float, alpha: int = 200,
+                      cmap_name: str = "viridis") -> Image.Image:
+    norm = np.clip(np.nan_to_num(height) / max(vmax, 1e-3), 0.0, 1.0)
+    cmap = colormaps[cmap_name]
+    rgba = (cmap(norm) * 255).astype(np.uint8)
+    rgba[..., 3] = np.where(height < alpha_threshold, 0, alpha).astype(np.uint8)
+    return Image.fromarray(rgba, mode="RGBA")
+
+
+def photo_to_overlay_bytes(path: Path, max_edge: int, dark_threshold: int,
+                           jpeg_quality: int) -> tuple[bytes, str]:
+    """Load a JPG, drop near-black borders to alpha=0, return (bytes, suffix).
+
+    Falls back to JPEG when the image has no dark borders (smaller file)."""
+    img = ImageOps.exif_transpose(Image.open(path).convert("RGB"))
+    img = downsample(img, max_edge)
+    arr = np.array(img)
+    transparent = arr.max(axis=2) <= dark_threshold
+    if not transparent.any():
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=jpeg_quality, optimize=True)
+        return buf.getvalue(), "jpg"
+    alpha = np.where(transparent, 0, 255).astype(np.uint8)
+    rgba = np.dstack([arr, alpha])
+    buf = io.BytesIO()
+    Image.fromarray(rgba, mode="RGBA").save(buf, "PNG", optimize=True)
+    return buf.getvalue(), "png"
 
 
 def downsample(img: Image.Image, max_edge: int) -> Image.Image:
@@ -169,6 +200,9 @@ def build_kmz(
     include_heights: bool = True,
     include_mask: bool = True,
     photo_quality: int = 85,
+    dark_threshold: int = 5,
+    height_vmax: float = 15.0,
+    height_alpha_threshold: float = 1.0,
 ) -> None:
     meta = read_metadata(metadata_path)
     height_files = sorted(inputs_dir.glob("*_height.npy"))
@@ -220,23 +254,23 @@ def build_kmz(
             if photos_dir is not None:
                 photo_path = find_photo(stem, photos_dir)
                 if photo_path is not None:
-                    img = ImageOps.exif_transpose(Image.open(photo_path).convert("RGB"))
-                    img = downsample(img, max_edge)
-                    buf = io.BytesIO()
-                    img.save(buf, "JPEG", quality=photo_quality, optimize=True)
-                    href = f"photos/{stem}.jpg"
-                    kmz.writestr(href, buf.getvalue())
+                    blob, ext = photo_to_overlay_bytes(
+                        photo_path, max_edge, dark_threshold, photo_quality,
+                    )
+                    href = f"photos/{stem}.{ext}"
+                    kmz.writestr(href, blob)
                     photo_overlays.append(_overlay_xml(stem, href, coords, draw_order=0))
 
             if include_heights:
-                preview = inputs_dir / f"{stem}_preview.png"
-                if preview.exists():
-                    img = downsample(Image.open(preview).convert("RGBA"), max_edge)
-                    buf = io.BytesIO()
-                    img.save(buf, "PNG", optimize=True)
-                    href = f"heights/{stem}.png"
-                    kmz.writestr(href, buf.getvalue())
-                    height_overlays.append(_overlay_xml(stem, href, coords, draw_order=1))
+                heatmap = downsample(
+                    height_to_heatmap(height, height_vmax, height_alpha_threshold),
+                    max_edge,
+                )
+                buf = io.BytesIO()
+                heatmap.save(buf, "PNG", optimize=True)
+                href = f"heights/{stem}.png"
+                kmz.writestr(href, buf.getvalue())
+                height_overlays.append(_overlay_xml(stem, href, coords, draw_order=1))
 
             if include_mask:
                 mask = downsample(height_to_rgba(height, threshold, color), max_edge)
@@ -303,6 +337,13 @@ def main() -> None:
                    help="omit the canopy mask layer")
     p.add_argument("--photo-quality", type=int, default=85,
                    help="JPEG quality for photo overlays (default 85)")
+    p.add_argument("--dark-threshold", type=int, default=5,
+                   help="photo pixels with max(R,G,B) <= this become transparent "
+                        "(handles rectified-frame black borders); default 5")
+    p.add_argument("--height-vmax", type=float, default=15.0,
+                   help="upper bound for the height heatmap colormap, in meters; default 15")
+    p.add_argument("--height-alpha-threshold", type=float, default=1.0,
+                   help="height heatmap pixels < this (m) are transparent; default 1.0")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--rectified", dest="rectified", action="store_true", default=True,
                    help="height rasters come from rectified frames (default)")
@@ -322,6 +363,9 @@ def main() -> None:
         include_heights=args.include_heights,
         include_mask=args.include_mask,
         photo_quality=args.photo_quality,
+        dark_threshold=args.dark_threshold,
+        height_vmax=args.height_vmax,
+        height_alpha_threshold=args.height_alpha_threshold,
     )
 
 

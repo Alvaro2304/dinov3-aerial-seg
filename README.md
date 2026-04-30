@@ -305,9 +305,23 @@ After running CHMv2 across a flight, package the per‑frame canopy masks
 into a single KMZ for visual QA along the corridor.
 
 ```bash
+# mask only (smallest file)
+python mask_to_kmz.py outputs/ data/flight.txt -o canopy.kmz --threshold 2.0
+
+# add the original photos as a reference layer (recommended)
 python mask_to_kmz.py outputs/ data/flight.txt -o canopy.kmz \
-    --threshold 2.0 --max-edge 1024
+    --threshold 2.0 --photos-dir data_rectified/
+
+# everything: photos + height heatmap + mask
+python mask_to_kmz.py outputs/ data/flight.txt -o canopy.kmz \
+    --threshold 2.0 --photos-dir data_rectified/ --max-edge 1024
 ```
+
+The KMZ contains up to three toggleable layers (Google Earth sidebar):
+
+- **Photos (reference)** — visible by default. Source JPGs from `--photos-dir`.
+- **CHMv2 height** — hidden by default. Colormapped preview from `*_preview.png`.
+- **Canopy mask (>= T m)** — visible by default, drawn on top of photos.
 
 What it does, per `*_height.npy` in `outputs/`:
 

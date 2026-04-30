@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import re
 from pathlib import Path
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -41,12 +42,17 @@ R_MOUNT = np.array([[0.0, 1.0, 0.0],
 
 
 def parse_coord(s: str) -> float:
-    """`'13.343707° S'` -> -13.343707."""
-    s = s.strip().replace("°", "")
-    parts = s.split()
-    val = float(parts[0])
-    if len(parts) > 1 and parts[1].upper() in ("S", "W"):
-        val = -val
+    """`'13.343707° S'` -> -13.343707. Robust to any non-ASCII garbage
+    around the number and to ° encoding mishaps."""
+    m = re.search(r"[+-]?\d+\.?\d*", s)
+    if not m:
+        raise ValueError(f"no number in {s!r}")
+    val = float(m.group())
+    last = s.strip()[-1].upper() if s.strip() else ""
+    if last in ("S", "W"):
+        val = -abs(val)
+    elif last in ("N", "E"):
+        val = abs(val)
     return val
 
 
@@ -100,7 +106,7 @@ def downsample(img: Image.Image, max_edge: int) -> Image.Image:
 
 def read_metadata(path: Path) -> dict[str, dict]:
     meta: dict[str, dict] = {}
-    with path.open() as f:
+    with path.open(encoding="utf-8-sig") as f:
         reader = csv.DictReader(f, delimiter=";")
         for row in reader:
             meta[row["name"]] = {

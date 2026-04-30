@@ -299,7 +299,47 @@ from the survey and run inference on the mosaic at `--target-gsd 1.0`.
 
 ---
 
-## 10. What next
+## 10. Build a KMZ for Google Earth
+
+After running CHMv2 across a flight, package the per‑frame canopy masks
+into a single KMZ for visual QA along the corridor.
+
+```bash
+python mask_to_kmz.py outputs/ data/flight.txt -o canopy.kmz \
+    --threshold 2.0 --max-edge 1024
+```
+
+What it does, per `*_height.npy` in `outputs/`:
+
+1. Threshold to a binary canopy mask (default `>= 2.0 m`).
+2. Render as a transparent PNG (canopy = green semi‑transparent, else clear).
+3. Project the four image corners to lat/lon using `R_mount = Rz(-90°)`,
+   ZYX Euler attitude, and the metadata GPS + AGL.
+4. Add a `<GroundOverlay>` with `<gx:LatLonQuad>` (handles rotated frames).
+5. Zip everything into `canopy.kmz`.
+
+Flags worth knowing:
+
+- `--threshold M` — height ≥ this in meters is canopy. Default 2.0.
+- `--color R,G,B,A` — overlay color. Default `0,200,0,160` (semi‑green).
+- `--max-edge N` — downsample mask PNGs to this max side. Default 1024.
+- `--unrectified` — pass this if your height rasters came from raw tilted
+  frames; otherwise the script assumes you ran inference on rectified
+  outputs (default workflow).
+
+**Where to view:**
+
+- **Google Earth (desktop / web / mobile):** drag `canopy.kmz` into Earth.
+  All overlays render correctly, including rotated quads.
+- **Google Maps consumer site:** does not load KMZ directly anymore.
+- **Google My Maps (`mymaps.google.com`):** can import KMZ as a custom
+  layer, but limited to **5 MB / 2000 features / 10 layers per map**.
+  For a 200 km corridor with ~1000 frames you will exceed those limits —
+  use Google Earth as the primary viewer.
+
+---
+
+## 11. What next
 
 Once the previews look reasonable, binary segmentation is one line:
 

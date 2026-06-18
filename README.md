@@ -152,8 +152,12 @@ dinov3-aerial-seg/data/
     ...
 ```
 
-Default source GSD is **3.52 cm/px** (SONY ILX-LR1 at 150 m AGL, 16 mm focal
-length). If you fly at a different altitude or focal length, either:
+**`--source-gsd`** = native GSD of YOUR input images; default **3.52 cm/px**
+(SONY ILX-LR1 @ 150 m AGL, 16 mm). **`--target-gsd`** = what they're resampled
+*to* before inference — **defaults to 0.6 m/px = CHMv2's native operating GSD**
+(Maxar Vivid2 ~0.597 m/px, paper sec 2.2/5). Set `--source-gsd` to your real
+input GSD; leave `--target-gsd` at 0.6 unless experimenting. If you fly
+differently, either:
 
 - Pass `--source-gsd <meters_per_pixel>` on the command line, or
 - Edit the default in `chmv2_infer.py` (argparse section).
@@ -175,21 +179,18 @@ Single forward pass on a resized copy, longest side 2048 px:
 python chmv2_infer.py data/IMG_0001.JPG
 ```
 
-### 6b. Scale-matched test (closer to what CHMv2 was trained on)
+### 6b. Scale-matched test — CHMv2's native GSD (now the default)
 
-Resize so each pixel = 20 cm on the ground (~5× finer than training, still
-viable). Good middle ground for drone imagery:
-
-```bash
-python chmv2_infer.py data/IMG_0001.JPG --target-gsd 0.2
-```
-
-For the "fair" 1 m/px comparison (image will be tiny, model upsizes
-internally):
+CHMv2 operates at **0.6 m/px** (Maxar Vivid2 ~0.597 m/px, paper sec 2.2/5), so
+`--target-gsd 0.6` is the **default**: the input is resampled to 0.6 m/px before
+inference. This is the correct scale — feeding a different one degrades heights.
 
 ```bash
-python chmv2_infer.py data/IMG_0001.JPG --target-gsd 1.0
+python chmv2_infer.py data/IMG_0001.JPG               # --target-gsd 0.6 by default
+python chmv2_infer.py data/IMG_0001.JPG --target-gsd 0.6
 ```
+
+(0.2 m/px is finer-than-native and also works as a comparison: `--target-gsd 0.2`.)
 
 ### 6c. Full-resolution tile mode
 
@@ -216,7 +217,7 @@ python chmv2_infer.py data/ -o outputs/
 Send each test to its own subfolder:
 
 ```bash
-python chmv2_infer.py data/IMG_0001.JPG --target-gsd 1.0 -o outputs/gsd_1m/
+python chmv2_infer.py data/IMG_0001.JPG --target-gsd 0.6 -o outputs/gsd_60cm/
 python chmv2_infer.py data/IMG_0001.JPG --target-gsd 0.2 -o outputs/gsd_20cm/
 python chmv2_infer.py data/IMG_0001.JPG --mode tile       -o outputs/tile_native/
 ```
@@ -252,8 +253,8 @@ Open the `.tif` in QGIS / ArcGIS / any image viewer.
 - **PIL "DecompressionBombError"** — already disabled in the script
   (`Image.MAX_IMAGE_PIXELS = None`).
 - **Preview looks like flat noise / constant value** — expected when feeding
-  CHMv2 imagery that's far from its training scale. Try `--target-gsd 1.0`
-  (matches training) or build an orthomosaic first.
+  CHMv2 imagery that's far from its native scale. Use `--target-gsd 0.6`
+  (CHMv2's native GSD, now the default) or build an orthomosaic first.
 - **First run is slow / hangs** — the model is being downloaded from Hugging
   Face (~1.2 GB). It caches in `~/.cache/huggingface/hub/` (Git Bash) or
   `%USERPROFILE%\.cache\huggingface\hub\` (cmd) for subsequent runs.

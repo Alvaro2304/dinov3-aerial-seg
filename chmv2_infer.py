@@ -6,16 +6,18 @@ on one image or a folder. Two modes and two ways to control input size:
   --mode downsample   single forward pass on a resized copy (fast; default)
   --mode tile         overlapping tiles blended with a Hann window (slower)
 
-Resize controls (pick ONE; --target-gsd wins if both are set):
+Resize controls (--target-gsd wins, and it is the default):
 
-  --longest N         raw pixel control: resize so longest side = N px.
-                      Only active in downsample mode. Default 2048.
-  --target-gsd M      physical control: resize so each output pixel covers
-                      M meters on the ground. Requires --source-gsd for the
-                      camera's native GSD. Active in both modes.
+  --target-gsd M      physical control (DEFAULT 0.6): resample so each pixel
+                      covers M m on the ground. 0.6 = CHMv2's native operating
+                      GSD (Maxar Vivid2 ~0.597 m/px, paper sec 2.2/5) — match it
+                      or the canopy-height predictions degrade. Uses
+                      --source-gsd as the input's native GSD.
+  --longest N         raw-pixel fallback (only if --target-gsd is None): resize
+                      so longest side = N px. Downsample mode only. Default 2048.
 
-Default camera GSD is for a SONY ILX-LR1 at 150 m AGL with a 16 mm lens
-(3.52 cm/px). Override with --source-gsd for other setups.
+--source-gsd defaults to a SONY ILX-LR1 @ 150 m AGL, 16 mm lens (3.52 cm/px) —
+set it to the native GSD of YOUR input images.
 
 Outputs per input `foo.jpg` into `--output`:
   foo_height.npy        float32 canopy height, meters, full image resolution
@@ -159,8 +161,10 @@ def main() -> None:
                    help="[downsample] longest side in px. Ignored if --target-gsd is set.")
     p.add_argument("--source-gsd", type=float, default=0.0352,
                    help="native GSD of input images in meters/pixel (default: 0.0352 = ILX-LR1 @ 150m AGL, 16mm)")
-    p.add_argument("--target-gsd", type=float, default=None,
-                   help="resize so output GSD = this many meters/pixel. Overrides --longest when set.")
+    p.add_argument("--target-gsd", type=float, default=0.6,
+                   help="resample input to this GSD (m/px) before inference. Default 0.6 = CHMv2's native "
+                        "operating GSD (Maxar Vivid2 ~0.597 m/px, paper sec 2.2/5); feeding a different scale "
+                        "degrades the canopy-height predictions. Set None to fall back to --longest.")
     p.add_argument("--tile", type=int, default=1024, help="[tile] tile size in px")
     p.add_argument("--overlap", type=int, default=128, help="[tile] overlap in px")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
